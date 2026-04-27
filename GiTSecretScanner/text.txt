@@ -1,0 +1,12 @@
+SECRET_KEY = "my-secret-password-123"
+API_KEY = 'sk-abcdefghijklmnop1234567890'
+PASSWORD = myplainpassword
+token = "ghp_1234567890abcdef1234567890abcdef123456"
+AWS_ACCESS_KEY_ID = AKIA1234567890ABCDEF
+GITHUB_TOKEN = ghp_abcdefghijklmnopqrstuvwxyz1234567890
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA...
+-----END RSA PRIVATE KEY-----
+DATABASE_URL = postgresql://user:password@localhost:5432/db
+not_a_secret = just_some_value
+normal_variable = hello_world

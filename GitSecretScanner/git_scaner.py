@@ -2,8 +2,40 @@ import os
 import re
 from rich.console import Console
 from rich.panel import Panel
+import json
 
 console = Console(highlight=False)
+
+
+def load_config(config_file: str = 'GitSecretScanner/.secret_scanner_config.json') -> dict:
+    try:
+        with open(config_file, 'r') as fd:
+            config = json.load(fd)
+    except FileNotFoundError:
+        config = {
+    "ignore_dirs": [],
+    "ignore_files": [],
+    "patterns": {}
+    }
+    return config
+        
+
+
+def save_config(config=None, path: str = 'GitSecretScanner/.secret_scanner_config.json') -> None:
+    if config == None:
+        config = load_config()
+    with open(path, 'w') as fd:
+        json.dump(config, fd, indent=4)
+
+def add_to_config(section: str, key, value=None):
+    config = load_config()
+    if (section == 'ignore_dirs' or section == 'ignore_files') and key not in config[section]:
+        config[section].append(key)
+    if section == 'paterns' and key not in config['paterns']:
+        config['paterns'][key] = value
+    save_config(config)
+
+
 
 
 def output(path: str, line: str, sec_type: str, masked: str, c: int) -> str:
@@ -29,14 +61,15 @@ def secret_mask(secret_type: str, line: str) -> tuple:
 
 
 def secret_finder(path:str) -> list:
+    config = load_config()
     with open(path, 'r', encoding='utf-8') as file:
         final = []
         
-        API_key = r'([0-9A-Z]+_KEY\w*)\s?[:=]\s?[\'\"]?([0-9a-zA-Z\s\._-]+)[\'\"]?'
-        AWS_key = r'(AKIA[0-9a-zA-z]{16})'
-        Git_hub_token = r'(gh[pousr]_[a-zA-Z0-9]{36})'
-        SSH = r'-----BEGIN.+-----'
-        generic_pas = r'(?:password|passwd|token)\s?[:=]\s?[\'\"]?([0-9a-zA-Z\s\._-]+)[\'\"]?'
+        API_key = fr'{config['paterns']['API']}'
+        AWS_key = fr'{config['paterns']['AWS']}'
+        Git_hub_token = fr'{config['paterns']['GIT']}'
+        SSH = fr'{config['paterns']['SSH']}'
+        generic_pas = fr'{config['paterns']['GENERIC']}'
 
         for line_num, line in enumerate(file, start=1):
 
@@ -87,12 +120,12 @@ path = 'GitSecretScanner'
 
 
 ignore_dir = {'.git', 'node_modules', '__pycache__', 'venv', 'idea'}
+ignore_dir.update(load_config()['ignore_dirs'])
+
 
 for root, dirs, files in os.walk(path):
 
-    for dir in dirs:
-        if dir in ignore_dir:
-            continue
+    dirs[:] = [d for d in dirs if d not in ignore_dir]
 
     for file in files:
         f_obj = open(f'{root}/{file}', 'r')
@@ -101,8 +134,9 @@ for root, dirs, files in os.walk(path):
             f_obj.read()
         except UnicodeDecodeError:
             continue
-
-        if file.startswith('.') and file != '.env' or file == 'git_scaner.py':
+        if file.startswith('.') and file != '.env':
+            continue
+        if file in load_config()['ignore_files']:
             continue
 
         full_path = os.path.join(root, file)

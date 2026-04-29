@@ -10,3 +10,4 @@ MIIEpAIBAAKCAQEA...
 DATABASE_URL = postgresql://user:password@localhost:5432/db
 not_a_secret = just_some_value
 normal_variable = hello_world
+something

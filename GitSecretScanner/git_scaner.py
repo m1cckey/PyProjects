@@ -4,10 +4,11 @@ from rich.console import Console
 from rich.panel import Panel
 import json
 
+base_dir = '/Users/lenar/envs/project/PyProjects/GitSecretScanner'
 console = Console(highlight=False)
 
 
-def load_config(config_file: str = 'GitSecretScanner/.secret_scanner_config.json') -> dict:
+def load_config(config_file: str = os.path.join(base_dir, '.secret_scanner_config.json')) -> dict:
     try:
         with open(config_file, 'r') as fd:
             config = json.load(fd)
@@ -21,7 +22,7 @@ def load_config(config_file: str = 'GitSecretScanner/.secret_scanner_config.json
         
 
 
-def save_config(config=None, path: str = 'GitSecretScanner/.secret_scanner_config.json') -> None:
+def save_config(config=None, path: str = os.path.join(base_dir, '.secret_scanner_config.json')) -> None:
     if config == None:
         config = load_config()
     with open(path, 'w') as fd:
@@ -31,8 +32,8 @@ def add_to_config(section: str, key, value=None):
     config = load_config()
     if (section == 'ignore_dirs' or section == 'ignore_files') and key not in config[section]:
         config[section].append(key)
-    if section == 'paterns' and key not in config['paterns']:
-        config['paterns'][key] = value
+    if section == 'patterns' and key not in config['patterns']:
+        config['patterns'][key] = value
     save_config(config)
 
 
@@ -48,13 +49,13 @@ def secret_mask(secret_type: str, line: str) -> tuple:
     if len(line) <= 4:
         mask_line = '****'
         pair = (mask_line, secret_type)
-    elif (secret_type == 'GIT' or secret_type == 'AWS' or secret_type == 'PASSWORD' or secret_type == 'API') and len(line) > 4:
-        mask = (len(line) - 5) * '*'
-        new_line = line[:4]
-        mask_line = new_line + mask
-        pair = (mask_line, secret_type)
     elif secret_type == 'SSH' and len(line) > 4:
         mask_line = line.split('\n')[0]
+        pair = (mask_line, secret_type)
+    else:
+        mask = (len(line) - 4) * '*'
+        new_line = line[:4]
+        mask_line = new_line + mask
         pair = (mask_line, secret_type)
     return pair
     
@@ -64,85 +65,71 @@ def secret_finder(path:str) -> list:
     config = load_config()
     with open(path, 'r', encoding='utf-8') as file:
         final = []
-        
-        API_key = fr'{config['paterns']['API']}'
-        AWS_key = fr'{config['paterns']['AWS']}'
-        Git_hub_token = fr'{config['paterns']['GIT']}'
-        SSH = fr'{config['paterns']['SSH']}'
-        generic_pas = fr'{config['paterns']['GENERIC']}'
-
+        pat = {
+            'API_key': [fr'{config['patterns']['API']}', 2, lambda v: 'AKIA' in v, 0],
+            'AWS_key': [fr'{config['patterns']['AWS']}', 1, 0, 0],
+            'Git_hub_token': [fr'{config['patterns']['GIT']}', 1, 0, 0],
+            'SSH': [fr'{config['patterns']['SSH']}', 1, 0, re.MULTILINE],
+            'generic_pas': [fr'{config['patterns']['GENERIC']}', 1, lambda s: s.startswith('gh'), re.IGNORECASE]
+        }
         for line_num, line in enumerate(file, start=1):
 
             value = []
 
-            result_api = re.search(API_key, line)
-            result_aws = re.search(AWS_key, line)
-            result_git = re.search(Git_hub_token, line)
-            result_ssh = re.search(SSH, line, re.MULTILINE)
-            result_password = re.search(generic_pas, line, re.IGNORECASE)
+            for name, (regex, group_num, exc, flag) in pat.items():
+                result = re.search(regex, line, flag)
+                if result and not (exc and exc(result.group(group_num))):
+                    type_of_sec = name
+                    pair = secret_mask(type_of_sec, result.group(group_num))
+                    value.append(pair)
+                    final.append((path, line_num, pair))
+                else:
+                    continue
+        return final
 
-            if result_api and not ('AKIA' in result_api.group(2)):
-                type_of_sec = 'API'
-                pair = secret_mask(type_of_sec, result_api.group(2))
-                value.append(pair)
-                final.append((path, line_num, pair))
-
-            if result_aws:
-                type_of_sec = 'AWS'
-                pair = secret_mask(type_of_sec, result_aws.group(1))
-                value.append(pair)
-                final.append((path, line_num, pair))
-
-            if result_git:
-                type_of_sec = 'GIT'
-                pair = secret_mask(type_of_sec, result_git.group(1))
-                value.append(pair)
-                final.append((path, line_num, pair))
-
-            if result_ssh:
-                type_of_sec = 'SSH'
-                pair = secret_mask(type_of_sec, result_ssh.group())
-                value.append(pair)
-                final.append((path, line_num, pair))
-
-            if result_password and not (result_password.group(1).startswith('gh')):
-                type_of_sec = 'PASSWORD'
-                pair = secret_mask(type_of_sec, result_password.group(1))
-                final.append((path, line_num, pair))
             
-    return final
 
 count = 0
-c = 0
 
-path = 'GitSecretScanner'
+
+
 #path = str(input('Enter file path:'))
 
 
 ignore_dir = {'.git', 'node_modules', '__pycache__', 'venv', 'idea'}
 ignore_dir.update(load_config()['ignore_dirs'])
 
+def scan_directory(path):
+    c = 0
+    secrets = []
+    for root, dirs, files in os.walk(path):
 
-for root, dirs, files in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in ignore_dir]
 
-    dirs[:] = [d for d in dirs if d not in ignore_dir]
+        for file in files:
+            f_obj = open(f'{root}/{file}', 'r')
 
-    for file in files:
-        f_obj = open(f'{root}/{file}', 'r')
+            try:
+                f_obj.read()
+            except UnicodeDecodeError:
+                continue
+            if file.startswith('.') and file != '.env':
+                continue
+            if file in load_config()['ignore_files']:
+                continue
 
-        try:
-            f_obj.read()
-        except UnicodeDecodeError:
-            continue
-        if file.startswith('.') and file != '.env':
-            continue
-        if file in load_config()['ignore_files']:
-            continue
+            full_path = os.path.join(root, file)
 
-        full_path = os.path.join(root, file)
-        c += 1
+            for path, line, pair in secret_finder(full_path):
+                c+=1
+                masked, sec_type = pair
+                secrets.append((path, line, sec_type, masked, c))
+    return secrets
+                
 
-        for path, line, pair in secret_finder(full_path):
-            masked, sec_type = pair
-            console.print(output(path, line, sec_type, masked, c), justify='center')
-
+print(base_dir)
+list_of_secrets = scan_directory(base_dir)
+if list_of_secrets:
+    for path, line, sec_type, masked, c in list_of_secrets:
+        console.print(output(path, line, sec_type, masked, c), justify='center')
+                    

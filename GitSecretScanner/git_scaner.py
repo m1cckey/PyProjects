@@ -1,5 +1,6 @@
 import os 
 import re
+import sys
 from rich.console import Console
 from rich.panel import Panel
 import json
@@ -87,17 +88,6 @@ def secret_finder(path:str) -> list:
                     continue
         return final
 
-            
-
-count = 0
-
-
-
-#path = str(input('Enter file path:'))
-
-
-ignore_dir = {'.git', 'node_modules', '__pycache__', 'venv', 'idea'}
-ignore_dir.update(load_config()['ignore_dirs'])
 
 def scan_directory(path):
     c = 0
@@ -125,10 +115,22 @@ def scan_directory(path):
                 masked, sec_type = pair
                 secrets.append((path, line, sec_type, masked, c))
     return secrets
-                
+                  
+
+count = 0
+
+
+
+ignore_dir = {'.git', 'node_modules', '__pycache__', 'venv', 'idea'}
+ignore_dir.update(load_config()['ignore_dirs'])
+
+
 if __name__ == '__main__':
-    print(base_dir)
-    list_of_secrets = scan_directory(base_dir)
+    if len(sys.argv) > 1:
+        scan_path = sys.argv[1]
+    else:
+        scan_path = base_dir
+    list_of_secrets = scan_directory(scan_path)
     if list_of_secrets:
         for path, line, sec_type, masked, c in list_of_secrets:
             console.print(output(path, line, sec_type, masked, c), justify='center')

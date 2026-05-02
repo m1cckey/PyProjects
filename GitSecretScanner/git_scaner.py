@@ -126,10 +126,10 @@ def scan_directory(path):
                 secrets.append((path, line, sec_type, masked, c))
     return secrets
                 
-
-print(base_dir)
-list_of_secrets = scan_directory(base_dir)
-if list_of_secrets:
-    for path, line, sec_type, masked, c in list_of_secrets:
-        console.print(output(path, line, sec_type, masked, c), justify='center')
+if __name__ == '__main__':
+    print(base_dir)
+    list_of_secrets = scan_directory(base_dir)
+    if list_of_secrets:
+        for path, line, sec_type, masked, c in list_of_secrets:
+            console.print(output(path, line, sec_type, masked, c), justify='center')
                     

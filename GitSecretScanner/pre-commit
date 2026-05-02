@@ -4,12 +4,8 @@ import os
 sys.path.append('/Users/lenar/envs/project/PyProjects/GitSecretScanner')
 from git_scaner import scan_directory
 path = os.path.dirname(os.path.dirname(os.getcwd()))
-print(path)
 result = scan_directory(path)
-print("Сканирую:", path)
-print("Найдено секретов:", len(result))
 if result:
-
     print("Found a secret, commit aborted")
     sys.exit(1)
 else:

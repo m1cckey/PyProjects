@@ -33,7 +33,7 @@ python AuditDeps.py
 ![Examples of program launch](screenshot2.png)
 ![Examples of Final stats](final_stats.png)
 
-## Stecs
+## Tech Stack
 
 Python, Requests, Rich, OSV API, Requirements-parser, Json
 

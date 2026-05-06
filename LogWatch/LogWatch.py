@@ -1,4 +1,6 @@
 import re
+import pandas as pd
+
 
 def parser_log(path: str) -> list:
     result = []
@@ -22,10 +24,10 @@ def parser_log(path: str) -> list:
                     "remote_user": remote_user,
                     "date": date,
                     "full_method": full_method,
-                    "status": status,
+                    "status": int(status),
                     "size": size,
                     "http_refer": http_refer,
-                    "ua": ua
+                    "UA": ua
                 }
                 result.append(log)
     return result
@@ -33,17 +35,58 @@ def parser_log(path: str) -> list:
 
 
 
-def detect_sql_injection(data: list):
-    regex = r'.+ (?P<pattern>(OR \'\d\'=\'\d)|(SELECT|DROP|DELETE|INSERT|UPDATE)|(\-\-)|(\/\*))'
+def detect_sql_injection(data: list) -> list:
+    regex = r'(?P<pattern>(OR 1=1|\' OR |UNION SELECT|DROP TABLE|DELETE|INSERT|UPDATE|\-\-|\/\*))'
     result = []
     for item  in data:
         match = re.search(regex, item['full_method'], re.IGNORECASE)
         if match:
-            triplet = (match.group('pattern'), item['full_method'], item['IP'], 'SQL Injection detected')
+            triplet = {"Pattern": match.group('pattern'),
+                        "Method": item['full_method'],
+                        "IP": item['IP'], 
+                        "Description": 'SQL Injection detected'}
             result.append(triplet)
     return result
 
 
-sql = detect_sql_injection(parser_log('LogWatch/test_acces.log'))
-for pattern, full_method, ip, reason in sql:
-    print(f'pattern: {pattern}\nmethod: {full_method}\nIP: {ip}\nreason: {reason}') 
+def detect_sus_ua(data: list) -> list:
+    regex = r'(?P<pattern>(sqlmap|nikto|gobuster|dirbuster|dirb|nmap|curl|wget|python-requests|python-urllib|wpscan|burp|acunetix|nessus|metasploit|hydra|zgrab|masscan))'
+    result = []
+    for item  in data:
+        match = re.search(regex, item['UA'], re.IGNORECASE)
+        if match:
+            triplet = {"IP": item['IP'],
+                        "Pattern": match.group('pattern'),
+                        "Description": 'Suspicious UA'}
+            result.append(triplet)
+    return result
+
+def brute_force(data: list, threshhold = 5) -> list:
+    df = pd.DataFrame(data)
+    df = df[df['status'].isin([401, 403])]
+    invalid = df.groupby('IP').filter(lambda x: x['status'].count() >= threshhold)
+    atemps = invalid['IP'].size
+    invalid = invalid.drop_duplicates(subset=['IP'])
+    invalid = invalid.to_dict('records')
+    for elems in invalid:
+        elems['atemps'] = atemps
+        elems['description'] = 'Brute force detected'
+    return invalid
+
+#TODO: detect_scsannig deetct_xss detect_spike
+
+
+
+b = detect_sql_injection(parser_log('LogWatch/test_acces.log'))
+for el in b:
+    for k, v in el.items():
+        print(f'{k}: {v}')
+s = brute_force(parser_log('LogWatch/test_acces.log'))
+print('-'*20)
+for elem in s:
+    for a, c in elem.items():
+        print(f'{a}: {c}')
+
+
+
+print(parser_log('LogWatch/test_acces.log')[3]['full_method'])

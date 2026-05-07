@@ -1,5 +1,6 @@
 import re
 import pandas as pd
+from datetime import datetime
 
 
 def parser_log(path: str) -> list:
@@ -57,36 +58,88 @@ def detect_sus_ua(data: list) -> list:
         if match:
             triplet = {"IP": item['IP'],
                         "Pattern": match.group('pattern'),
-                        "Description": 'Suspicious UA'}
+                        "Description": 'Suspicious UA',
+                        "Method": item['full_method']}
+                    
             result.append(triplet)
     return result
 
-def brute_force(data: list, threshhold = 5) -> list:
+def brute_force(data: list, threshhold: int = 5) -> list:
     df = pd.DataFrame(data)
     df = df[df['status'].isin([401, 403])]
     invalid = df.groupby('IP').filter(lambda x: x['status'].count() >= threshhold)
-    atemps = invalid['IP'].size
+    attemps = invalid['IP'].size
     invalid = invalid.drop_duplicates(subset=['IP'])
     invalid = invalid.to_dict('records')
     for elems in invalid:
-        elems['atemps'] = atemps
+        elems['attemps'] = attemps
         elems['description'] = 'Brute force detected'
     return invalid
 
-#TODO: detect_scsannig deetct_xss detect_spike
 
 
+def detect_scanning(data: list, treshhold: int = 5) -> list:
+    df = pd.DataFrame(data)
+    df = df[df['status'].isin([404])]
+    invalid = df.groupby('IP').filter(lambda v: v['full_method'].nunique() >= treshhold)
+    invalid = invalid.groupby('IP').filter(lambda x: x['status'].count() >= treshhold)
+    attemps = invalid['IP'].size
+    invalid = invalid.drop_duplicates(subset=['IP'])
+    invalid = invalid.to_dict('records')
+    for elems in invalid:
+        elems['attemps'] = attemps
+        elems['description'] = 'Scanning detected'
+    return invalid   
+
+
+def detect_xss(data: list) -> list:
+    result = []
+    regex = r'(?P<pattern>(on\w+\s=[^\"]*)|(<.+>)|(javascript))'
+    for line in data:
+        match = re.search(regex, line['full_method'], re.IGNORECASE)
+        if match:
+            triplet = {
+                "Patern": match.group('pattern'),
+                "IP": line['IP'],
+                "full method": line['full_method'],
+                "description": 'XSS attack detected'
+            }
+            result.append(triplet)
+    return result
+
+#TODO:detect_spike
+
+def detect_spike(data: list) -> list:
+    res =[]
+    for item in data:
+        res.append(item['date'])
+    return
+'''
+d = detect_xss(parser_log('LogWatch/test_acces.log'))
+for el in d:
+    for k, v in el.items():
+        print(f'{k}: {v}')
 
 b = detect_sql_injection(parser_log('LogWatch/test_acces.log'))
 for el in b:
     for k, v in el.items():
         print(f'{k}: {v}')
-s = brute_force(parser_log('LogWatch/test_acces.log'))
+
+
 print('-'*20)
+
+s = brute_force(parser_log('LogWatch/test_acces.log'))
 for elem in s:
     for a, c in elem.items():
         print(f'{a}: {c}')
 
+print('-'*20)
 
-
-print(parser_log('LogWatch/test_acces.log')[3]['full_method'])
+d = detect_scanning(parser_log('LogWatch/test_acces.log'))
+for elem in d:
+    for a, c in elem.items():
+        print(f'{a}: {c}')
+'''
+dt_str = "[10/Oct/2023:14:01:00 +0000]"
+dt = datetime.strptime(dt_str, "[%d/%b/%Y:%H:%M:%S %z]")
+print(dt)

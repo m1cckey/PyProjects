@@ -1,5 +1,6 @@
 import re
 import pandas as pd
+import numpy as np
 from datetime import datetime
 
 
@@ -13,7 +14,9 @@ def parser_log(path: str) -> list:
                 ip = match.group('IP')
                 auth_user = match.group('auth_user')
                 remote_user = match.group('remote_user')
-                date = match.group('date')
+                dt = match.group('date')
+                dt = datetime.strptime(dt, "[%d/%b/%Y:%H:%M:%S %z]")
+                date = pd.to_datetime(dt)
                 full_method = match.group('full_method')
                 status = match.group('status')
                 size = match.group('size')
@@ -68,8 +71,8 @@ def brute_force(data: list, threshhold: int = 5) -> list:
     df = pd.DataFrame(data)
     df = df[df['status'].isin([401, 403])]
     invalid = df.groupby('IP').filter(lambda x: x['status'].count() >= threshhold)
-    attemps = invalid['IP'].size
     invalid = invalid.drop_duplicates(subset=['IP'])
+    attemps = invalid['IP'].size
     invalid = invalid.to_dict('records')
     for elems in invalid:
         elems['attemps'] = attemps
@@ -83,8 +86,8 @@ def detect_scanning(data: list, treshhold: int = 5) -> list:
     df = df[df['status'].isin([404])]
     invalid = df.groupby('IP').filter(lambda v: v['full_method'].nunique() >= treshhold)
     invalid = invalid.groupby('IP').filter(lambda x: x['status'].count() >= treshhold)
-    attemps = invalid['IP'].size
     invalid = invalid.drop_duplicates(subset=['IP'])
+    attemps = invalid['IP'].size
     invalid = invalid.to_dict('records')
     for elems in invalid:
         elems['attemps'] = attemps
@@ -107,39 +110,40 @@ def detect_xss(data: list) -> list:
             result.append(triplet)
     return result
 
-#TODO:detect_spike
+
 
 def detect_spike(data: list) -> list:
     res =[]
-    for item in data:
-        res.append(item['date'])
-    return
-'''
-d = detect_xss(parser_log('LogWatch/test_acces.log'))
-for el in d:
-    for k, v in el.items():
-        print(f'{k}: {v}')
+    df = pd.DataFrame(data)
+    df = df[df['status'].isin([500, 502, 503])]
+    df['date'] = pd.to_datetime(df['date'])
+    df['round_time'] = df['date'].dt.floor('min')
+    invalid = df.groupby(['round_time']).size()
+    arr = np.array(invalid)
+    mn = np.mean(arr)
+    st = np.std(arr)
+    z_score = (arr-mn)/st
+    mask = z_score > 2
+    outliers = invalid[mask]
+    for time, count in outliers.items():
+        dict_of_spikes ={
+            "time": str(time),
+            "Errors": count,
+            "Description": "Error spike detected"
+        }
+    
+        res.append(dict_of_spikes)
+    return res
 
-b = detect_sql_injection(parser_log('LogWatch/test_acces.log'))
-for el in b:
-    for k, v in el.items():
-        print(f'{k}: {v}')
-
-
+print(detect_sql_injection(parser_log('LogWatch/test_acces.log')))
 print('-'*20)
-
-s = brute_force(parser_log('LogWatch/test_acces.log'))
-for elem in s:
-    for a, c in elem.items():
-        print(f'{a}: {c}')
-
+print(detect_sus_ua(parser_log('LogWatch/test_acces.log')))
 print('-'*20)
+print(brute_force(parser_log('LogWatch/test_acces.log')))
+print('-'*20)
+print(detect_scanning(parser_log('LogWatch/test_acces.log')))
+print('-'*20)
+print(detect_xss(parser_log('LogWatch/test_acces.log')))
+print('-'*20)
+print(detect_spike(parser_log('LogWatch/test_acces.log')))
 
-d = detect_scanning(parser_log('LogWatch/test_acces.log'))
-for elem in d:
-    for a, c in elem.items():
-        print(f'{a}: {c}')
-'''
-dt_str = "[10/Oct/2023:14:01:00 +0000]"
-dt = datetime.strptime(dt_str, "[%d/%b/%Y:%H:%M:%S %z]")
-print(dt)

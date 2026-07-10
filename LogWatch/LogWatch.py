@@ -4,6 +4,7 @@ import numpy as np
 from datetime import datetime
 from rich.console import Console
 from rich.panel import Panel
+import matplotlib.pyplot as plt
 console = Console(highlight=False)
 
 
@@ -206,7 +207,42 @@ def output(data: set) -> str:
     return Panel.fit(str(first_line) + str(second_line) + str(third_line) + f'[bold red]{str(other_lines)}[/bold red]', border_style = "bold white", title = "Statistics", title_align='center')
 
 
+console.print(output(display_report('LogWatch/test_acces.log')), justify='center')
 
-d = display_report('LogWatch/test_acces.log')
-console.print(output(d), justify='center')
+def pie_graphics(data: dict) -> None:
+    sizes = []
+    labels = []
+    colors = ["#FFB3B3","#9ac9f8","#9bff9b", "#9994FF", "#FEFEA1", "#FF94CA", "#89f8f3"]
 
+    df = pd.DataFrame(data)
+    df = df.groupby(['status']).size()
+    for key, value in dict(df).items():
+        key = str(key)
+        value = int(value)
+        sizes.append(value)
+        labels.append(key)
+    plt.pie(sizes, colors=colors, labels=labels, startangle=140, autopct='%1.f%%', labeldistance=10)
+    plt.legend(bbox_to_anchor = (-0.16, 0.45, 0.25, 0.25), loc = 'best', labels = labels)
+    plt.axis('equal')
+    plt.title('Error Distribution')
+    plt.show()
+    return None
+print(pie_graphics(parser_log('LogWatch/test_acces.log')))
+
+def line_graphics(data: dict) -> None:
+    ax = []
+    oy = []
+    df = pd.DataFrame(data)
+    df = df[df['status'].isin([500, 502, 503])]
+    df['round_time'] = df['date'].dt.floor('min')
+    df = df.groupby(['round_time']).size()
+    for x, y in dict(df).items():
+        ax.append(x)
+        oy.append(y)
+    plt.plot(ax,oy)
+    plt.title('5XX Eroors Distribution')
+    plt.xlabel('Time')
+    plt.ylabel('Amount')
+    plt.show()
+    return None
+print(line_graphics(parser_log('LogWatch/test_acces.log')))

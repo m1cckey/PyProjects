@@ -15,6 +15,8 @@ console utility for checking anomalies in website access log
     - Brute Force
     - Error spikes
 * colorful output
+* Graphics With matplotlib
+* using numpy and pandas
 
 ## Install
 

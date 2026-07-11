@@ -38,8 +38,8 @@ python git_scaner.py or python git_scaner.py /Path/to/project
 
 ## screenshots
 
-![Examples of program launch from git_scanner.py](screenshot3.png)
-![Examples of hook launch](screenshot4.png)
+![Examples of program launch from git_scanner.py](screenshots/test1.png)
+![Examples of hook launch](screenshots/test_hook.png)
 
 
 ## Tech Stack

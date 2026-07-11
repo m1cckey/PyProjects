@@ -11,3 +11,5 @@ if result:
 else:
     sys.exit(0)
 
+print("Scanning path:", path)
+print("Result:", result)

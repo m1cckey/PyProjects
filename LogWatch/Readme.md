@@ -38,9 +38,9 @@ python LogWatch.py
 
 ## Screenshots
 
-![Examples of statistics](scr1.png)
-![Examples of pie graphic](scr2.png)
-![Examples of line graphic](scr3.png)
+![Examples of statistics](screenshots/scr1.png)
+![Examples of pie graphic](screenshots/scr2.png)
+![Examples of line graphic](screenshots/scr3.png)
 
 
 ## Tech Stack

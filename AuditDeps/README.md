@@ -29,9 +29,9 @@ python AuditDeps.py
 
 ## screenshots
 
-![Examples of program launch](screenshot1.png)
-![Examples of program launch](screenshot2.png)
-![Examples of Final stats](final_stats.png)
+![Examples of program launch](screenshots/screenshot1.png)
+![Examples of program launch](screenshots/screenshot2.png)
+![Examples of Final stats](screenshots/final_stats.png)
 
 ## Tech Stack
 

@@ -25,7 +25,7 @@ pip install -r requirements.txt
 
 ## Using
 
-python AuditDeps.py
+AuditDeps/AuditDeps.py --requirements ./requirements.txt --cache ./cache.json
 
 ## screenshots
 

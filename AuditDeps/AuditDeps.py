@@ -4,15 +4,13 @@ import requests
 import time
 import sys
 import argparse
+import pathlib
+import logging
 from rich.console import Console
 from rich.panel import Panel
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-r', '--requirements', required=True)
-parser.add_argument('--cache')
-args = parser.parse_args()
 
-console = Console(highlight=False)
+
 
 class AuditScanner:
     def __init__(self, file_path, cache_path):
@@ -26,9 +24,10 @@ class AuditScanner:
     def load_cache(self):
         try:
             with open(self.cache_path, 'r') as f:
-             
                 self.cache = json.load(f)    
+                logging.debug(f'cache found.\n{len(self.cache)} elements')
         except (FileNotFoundError, json.decoder.JSONDecodeError):
+                logging.debug('no cache found, initializing empty cache')
                 self.cache = {}
         return None
     
@@ -42,18 +41,20 @@ class AuditScanner:
                     if el[0] == '==' or el[0] == '>=':
                         pair = (req.name, el[1])
                         self.pack.append(pair)
+        logging.debug(f'parsing complete {len(self.pack)} elements found')
         return None
 
     
 
     def create_resp(self):
-
+        logging.info('start checking')
         api_url = "https://api.osv.dev/v1/query"
         for name, version in self.pack:
             self.total += 1
             key = f'{name}=={version}'
             if key in self.cache:
                 data = self.cache[key]
+                logging.info('information was taken from cache')
                 self.output(name, data)  
                 if data == {}:
                     self.without_vuln +=1
@@ -65,18 +66,24 @@ class AuditScanner:
                     },
                     "version": version,               
                 }
-                response = requests.post(api_url, json = payload)
-                time.sleep(0.5)
-                if response.status_code == 200:
-                    data = response.json()
-                    if data == {}:
-                        self.without_vuln += 1
-                    self.cache[key] = data
-                    self.output(name, data)
-                    
-                else:
-                    print(f'Something went wrong {response.status_code}')
-                    continue
+                for attemp in range(3):
+                    try:
+                        response = requests.post(api_url, json = payload)
+                        
+                        logging.info(f'Response to OSV created')
+                        time.sleep(0.5)
+                        response.raise_for_status()
+                        logging.info('response successful and added to the cache')
+                        data = response.json()
+                        self.output(name, data)
+                        if data == {}:
+                            self.without_vuln += 1
+                        self.cache[key] = data
+                        break
+                    except requests.exceptions.RequestException:
+                        logging.warning('request failed, retrying...')
+                        if attemp == 2:
+                            logging.error('all attemps failed')
                 
         console.print(Panel.fit(self.final_stats(self.total, self.total-self.without_vuln, self.without_vuln)), justify='center')
         with open(self.cache_path, 'w') as file:
@@ -122,7 +129,7 @@ class AuditScanner:
             final = ', '.join(temp)
             color_name = f'[bold red]{name}[/bold red]'
         
-        return f'{color_name} has {count} vulnerability: {final}'
+        return f'{color_name} has {count} vulnerability: {final}\n'
 
     
 
@@ -202,7 +209,27 @@ class AuditScanner:
 
 
 if __name__ == '__main__':
-    scanner = AuditScanner(args.requirements, args.cache)
+
+    
+
+    console = Console(highlight=False)
+
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-r', '--requirements', required=True, help='path to reqs')
+    parser.add_argument('-c', '--cache', default='.audit_cache.json', help='path to cache')
+    parser.add_argument('-v', '--verbose', action='store_true', help='debug mode')
+    args = parser.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(message)s')
+    else:
+        logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+    file_path = pathlib.Path(args.requirements)
+    cache_path = pathlib.Path(args.cache)
+
+    scanner = AuditScanner(file_path, cache_path)
     scanner.load_cache()
     scanner.create_pack()
     scanner.create_resp()

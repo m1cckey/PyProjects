@@ -42,7 +42,7 @@ class AuditScanner:
                         pair = (req.name, el[1])
                         self.pack.append(pair)
         logging.debug(f'parsing complete {len(self.pack)} elements found')
-        return None
+        
 
     
 
@@ -66,6 +66,8 @@ class AuditScanner:
                     },
                     "version": version,               
                 }
+                logging.debug(f'request with payload: {payload}')
+                
                 for attemp in range(3):
                     try:
                         response = requests.post(api_url, json = payload)
@@ -86,8 +88,10 @@ class AuditScanner:
                             logging.error('all attemps failed')
                 
         console.print(Panel.fit(self.final_stats(self.total, self.total-self.without_vuln, self.without_vuln)), justify='center')
+
+    def write_cache(self):
         with open(self.cache_path, 'w') as file:
-            json.dump(self.cache, file, indent = 4, ensure_ascii=False)
+                    json.dump(self.cache, file, indent = 4, ensure_ascii=False)
                 
 
 
@@ -157,7 +161,7 @@ class AuditScanner:
 
 
     
-    def final_severity_V3_V4(self, score: str) -> str:
+    def final_severity_V3_V4(self, score: str) -> str: #Can be replaced using libraries
             list_of_score = score.split('/')
             all_levels = []
             for element in list_of_score:
@@ -180,7 +184,7 @@ class AuditScanner:
 
 
 
-    def final_severity_V2(self, score: str) -> str:
+    def final_severity_V2(self, score: str) -> str: #Can be replaced using libraries
             list_of_score = score.split('/')
             all_levels = []
             for element in list_of_score:
@@ -233,6 +237,7 @@ if __name__ == '__main__':
     scanner.load_cache()
     scanner.create_pack()
     scanner.create_resp()
+    scanner.write_cache()
     
   
     if scanner.total - scanner.without_vuln > 0:
